@@ -12,6 +12,24 @@ try {
 
 const pad = n => String(n).padStart(2, "0");
 const font = (size, bold = true) => `${bold ? "bold " : ""}${size}px JBMono, monospace`;
+const FLAG = "🇦🇱";
+
+function sendMessage(api, message, threadID) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error, result) => {
+      if (settled) return;
+      settled = true;
+      error ? reject(error) : resolve(result);
+    };
+    try {
+      const result = api.sendMessage(message, threadID, finish);
+      if (result && typeof result.then === "function") result.then(value => finish(null, value), finish);
+    } catch (error) {
+      finish(error);
+    }
+  });
+}
 
 function rounded(ctx, x, y, w, h, r = 6) {
   ctx.beginPath();
@@ -104,7 +122,7 @@ module.exports = {
   name: "uptime",
   aliases: ["up"],
   description: "عرض تفاصيل BROLY كصورة.",
-  usage: "uptime",
+  usage: "uptime 🇦🇱",
   category: "General",
 
   async execute({ api, event, commands }) {
@@ -128,11 +146,13 @@ module.exports = {
     const tmpFile = path.join(os.tmpdir(), `uptime_${Date.now()}.png`);
     try {
       fs.writeFileSync(tmpFile, buildCard(info));
-      await api.sendMessage({ body: "", attachment: fs.createReadStream(tmpFile) }, event.threadID);
+      // Wait for Messenger's callback before deleting the temporary image.
+      // Deleting it immediately can interrupt the attachment stream.
+      await sendMessage(api, { body: `BROLY uptime ${FLAG}`, attachment: fs.createReadStream(tmpFile) }, event.threadID);
     } catch {
-      api.sendMessage(
-        `BROLY v${info.version}\nUptime: ${days}d ${hours}h ${mins}m ${secs}s\n` +
-        `RAM: ${memMB} MB  |  Groups: ${groups}  |  Commands: ${info.commands}`,
+      await api.sendMessage(
+        `🤖 BROLY v${info.version}\n⏱️ وقت التشغيل: ${days}ي ${hours}س ${mins}د ${secs}ث\n` +
+        `💾 RAM: ${memMB} MB  | 👥 المجموعات: ${groups} | 🧩 الأوامر: ${info.commands} ${FLAG}`,
         event.threadID
       );
     } finally {
